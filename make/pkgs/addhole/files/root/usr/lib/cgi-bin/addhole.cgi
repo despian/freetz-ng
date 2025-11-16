@@ -29,7 +29,10 @@ sec_begin "$(lang de:"Einstellungen" en:"Settings")"
 
 cgi_print_textline_p "file" "$ADDHOLE_FILE" 55/255 "$(lang de:"Datei mit blockierten Hosts" en:"File with blocked hosts"): "
 
-cgi_print_textline_p "sink" "$ADDHOLE_SINK" 15/15 "$(lang de:"Ziel-IP f&uuml;r blockierte Hosts" en:"Target IP for blocked hosts"): "
+cgi_print_textline_p "sink_ip4" "$ADDHOLE_SINK_IP4" 15/39 "$(lang de:"IPv4-Ziel-IP" en:"IPv4 sink IP"): "
+cgi_print_textline_p "sink_ip6" "$ADDHOLE_SINK_IP6" 15/39 "$(lang de:"IPv6-Ziel-IP (leer = keine AAAA-Blockierung)" en:"IPv6 sink IP (empty = no AAAA blocking)"): "
+
+echo "<p><small>$(lang de:"Alte Einstellung 'sink' wird automatisch nach 'sink_ip4' migriert." en:"Legacy 'sink' value is auto-migrated to 'sink_ip4'.")</small></p>"
 
 cgi_print_checkbox_p "keep" "$ADDHOLE_KEEP" "$(lang de:"Beim Updaten die vorherigen Hosts behalten" en:"On updating keep the previous hosts")."
 
