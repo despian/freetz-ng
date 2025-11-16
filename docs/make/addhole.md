@@ -28,3 +28,14 @@ Default: Only IPv4 (ADDHOLE_SINK_IP4 = 0.0.0.0). Set `ADDHOLE_SINK_IP6='::'` (or
 Leave empty (`ADDHOLE_SINK_IP6=''`) to disable AAAA blocking. Legacy single variable `ADDHOLE_SINK` is auto-migrated to `ADDHOLE_SINK_IP4`.
 Note: Enabling both roughly doubles the host list size and memory usage.
 
+## CNAME-Modus / CNAME Mode
+
+Im CNAME-Modus wird nur eine Zeile pro blockierter Domain erzeugt: `cname=domain,addhole-sink.invalid` plus wenige `address=` Zeilen für den gemeinsamen Sink-Host.
+Das reduziert Speicherbedarf und Dateigröße gegenüber dem Hosts-Modus (kein doppelter Eintrag für A/AAAA).
+Konfiguration: `ADDHOLE_MODE='cname'`, `ADDHOLE_SINK_HOST`, `ADDHOLE_SINK_IP4`, optional `ADDHOLE_SINK_IP6`. Leerer IPv6-Wert deaktiviert AAAA.
+Hinweis: Ein zusätzlicher CNAME-Resolution-Schritt ist erforderlich, aber im LAN vernachlässigbar.
+
+In CNAME mode only one line per blocked domain is generated: `cname=domain,addhole-sink.invalid` plus a couple of `address=` lines for the shared sink host.
+This lowers memory/file size versus hosts mode (no duplicate A/AAAA lines).
+Configure via `ADDHOLE_MODE='cname'`, `ADDHOLE_SINK_HOST`, `ADDHOLE_SINK_IP4`, optionally `ADDHOLE_SINK_IP6` (empty disables AAAA). Minor extra CNAME lookup latency is negligible locally.
+

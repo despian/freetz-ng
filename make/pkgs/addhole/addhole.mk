@@ -1,4 +1,4 @@
-$(call PKG_INIT_BIN, 1.1)
+$(call PKG_INIT_BIN, 1.2)
 ### SUPPORT:=fda77
 
 $(PKG)_CATEGORY:=Web interfaces

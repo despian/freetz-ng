@@ -5,6 +5,7 @@ DAEMON_LONG_NAME=Addhole
 . /etc/init.d/modlibrc
 
 HOSTS=/tmp/.dnsmasq.addhole
+CNAMES=/tmp/.dnsmasq.addhole.cname
 
 # Dual-stack sink support (backward compatibility):
 # Old variable ADDHOLE_SINK mapped to ADDHOLE_SINK_IP4 if new vars absent.
@@ -12,6 +13,8 @@ HOSTS=/tmp/.dnsmasq.addhole
 [ -z "$ADDHOLE_SINK_IP4" ] && [ -n "$ADDHOLE_SINK" ] && ADDHOLE_SINK_IP4="$ADDHOLE_SINK"
 [ -z "$ADDHOLE_SINK_IP4" ] && ADDHOLE_SINK_IP4="0.0.0.0"
 [ -z "$ADDHOLE_SINK_IP6" ] && ADDHOLE_SINK_IP6=""
+[ -z "$ADDHOLE_SINK_HOST" ] && ADDHOLE_SINK_HOST="addhole-sink.invalid"
+[ -z "$ADDHOLE_MODE" ] && ADDHOLE_MODE="hosts"
 
 
 reload() {
@@ -37,14 +40,31 @@ download() {
 
 	[ -z "$STF" ] && echo
 	[ -z "$STF" ] && echo -n "Old count of blocked domains: " && status
-	cat $TMP | dos2unix | grep -vE "^[ \t]*$|localhost|‐|ק|ɢ|é" | grep "\." | sort -u | grep -vE "^($ACK)$" | sed "s/^/$ADDHOLE_SINK /g" > "$HOSTS" 
-	# Rebuild with dual-stack lines if new variables defined (preferred path):
-	if [ -n "$ADDHOLE_SINK_IP4" -o -n "$ADDHOLE_SINK_IP6" ]; then
-		cat $TMP | dos2unix | grep -vE "^[ \t]*$|localhost|‐|ק|ɢ|é" | grep "\." | sort -u | grep -vE "^($ACK)$" | \
-		awk -v ip4="$ADDHOLE_SINK_IP4" -v ip6="$ADDHOLE_SINK_IP6" '{
-			if (ip4 != "") print ip4 " " $0;
-			if (ip6 != "") print ip6 " " $0;
-		}' > "$HOSTS"
+	# Build domain list (filtered, unique)
+	DOMAINS="$(cat $TMP | dos2unix | grep -vE "^[ \t]*$|localhost|‐|ק|ɢ|é" | grep "\." | sort -u | grep -vE "^($ACK)$")"
+
+	if [ "$ADDHOLE_MODE" = "cname" ]; then
+		# CNAME mode: single mapping line per domain + one sink host with A/AAAA
+		echo "# addhole cname mappings" > "$CNAMES"
+		[ -n "$ADDHOLE_SINK_IP4" ] && echo "address=/$ADDHOLE_SINK_HOST/$ADDHOLE_SINK_IP4" >> "$CNAMES"
+		[ -n "$ADDHOLE_SINK_IP6" ] && echo "address=/$ADDHOLE_SINK_HOST/$ADDHOLE_SINK_IP6" >> "$CNAMES"
+		echo "$DOMAINS" | grep -v "^$ADDHOLE_SINK_HOST$" | while read -r d; do
+			[ -n "$d" ] && echo "cname=$d,$ADDHOLE_SINK_HOST" >> "$CNAMES"
+		done
+		# Host file kept minimal for legacy reference
+		echo "# cname mode active" > "$HOSTS"
+	else
+		# hosts mode (legacy): generate host entries (dual-stack if enabled)
+		if [ -n "$ADDHOLE_SINK_IP4" -o -n "$ADDHOLE_SINK_IP6" ]; then
+			echo "$DOMAINS" | awk -v ip4="$ADDHOLE_SINK_IP4" -v ip6="$ADDHOLE_SINK_IP6" '{
+				if (ip4 != "") print ip4 " " $0;
+				if (ip6 != "") print ip6 " " $0;
+			}' > "$HOSTS"
+		else
+			echo "$DOMAINS" | sed "s/^/$ADDHOLE_SINK /g" > "$HOSTS"
+		fi
+		# Remove any stale cname file
+		[ -e "$CNAMES" ] && rm -f "$CNAMES"
 	fi
 	[ -s "$ADDHOLE_FILE" ] || echo '#' > "$HOSTS"
 	[ -z "$STF" ] && echo -n "New count of blocked domains: " && status
@@ -55,15 +75,25 @@ download() {
 }
 
 clear_hosts() {
-	# Clear & rebuild using legacy sink first (kept for backward compatibility):
-	cat "$DAEMON_CFGFILE" | grep -vE "^[ \t]*#|^[ \t]*$|localhost" | sed 's/#.*//g' | grep "\." | sort -u | sed "s/^/$ADDHOLE_SINK /g" > $HOSTS 2>/dev/null
-	# Prefer dual-stack output if new vars present:
-	if [ -n "$ADDHOLE_SINK_IP4" -o -n "$ADDHOLE_SINK_IP6" ]; then
-		cat "$DAEMON_CFGFILE" | grep -vE "^[ \t]*#|^[ \t]*$|localhost" | sed 's/#.*//g' | grep "\." | sort -u | \
-		awk -v ip4="$ADDHOLE_SINK_IP4" -v ip6="$ADDHOLE_SINK_IP6" '{
-			if (ip4 != "") print ip4 " " $0;
-			if (ip6 != "") print ip6 " " $0;
-		}' > $HOSTS 2>/dev/null
+	DOMAINS="$(cat "$DAEMON_CFGFILE" | grep -vE "^[ \t]*#|^[ \t]*$|localhost" | sed 's/#.*//g' | grep "\." | sort -u)"
+	if [ "$ADDHOLE_MODE" = "cname" ]; then
+		echo "# addhole cname mappings" > "$CNAMES"
+		[ -n "$ADDHOLE_SINK_IP4" ] && echo "address=/$ADDHOLE_SINK_HOST/$ADDHOLE_SINK_IP4" >> "$CNAMES"
+		[ -n "$ADDHOLE_SINK_IP6" ] && echo "address=/$ADDHOLE_SINK_HOST/$ADDHOLE_SINK_IP6" >> "$CNAMES"
+		echo "$DOMAINS" | grep -v "^$ADDHOLE_SINK_HOST$" | while read -r d; do
+			[ -n "$d" ] && echo "cname=$d,$ADDHOLE_SINK_HOST" >> "$CNAMES"
+		done
+		echo "# cname mode active" > "$HOSTS"
+	else
+		if [ -n "$ADDHOLE_SINK_IP4" -o -n "$ADDHOLE_SINK_IP6" ]; then
+			echo "$DOMAINS" | awk -v ip4="$ADDHOLE_SINK_IP4" -v ip6="$ADDHOLE_SINK_IP6" '{
+				if (ip4 != "") print ip4 " " $0;
+				if (ip6 != "") print ip6 " " $0;
+			}' > $HOSTS 2>/dev/null
+		else
+			echo "$DOMAINS" | sed "s/^/$ADDHOLE_SINK /g" > $HOSTS 2>/dev/null
+		fi
+		[ -e "$CNAMES" ] && rm -f "$CNAMES"
 	fi
 	[ -s "$ADDHOLE_FILE" ] || echo '#' > "$HOSTS"
 	reload
@@ -108,6 +138,9 @@ case $1 in
 		modreg extra $DAEMON "" 2 download
 		modreg extra $DAEMON "" 2 clear
 		modreg daemon --hide $DAEMON
+
+		# Ensure cname file exists if mode=cname for dnsmasq conf-file inclusion
+		[ "$ADDHOLE_MODE" = "cname" ] && [ ! -e "$CNAMES" ] && echo "# addhole cname mappings" > "$CNAMES"
 
 		echo -n "Setting up $DAEMON_LONG_NAME ... "
 		config

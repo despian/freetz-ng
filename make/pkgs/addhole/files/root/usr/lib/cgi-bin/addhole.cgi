@@ -29,10 +29,22 @@ sec_begin "$(lang de:"Einstellungen" en:"Settings")"
 
 cgi_print_textline_p "file" "$ADDHOLE_FILE" 55/255 "$(lang de:"Datei mit blockierten Hosts" en:"File with blocked hosts"): "
 
+cat << EOF
+<p>
+<label>$(lang de:"Modus" en:"Mode"):
+<select name="mode">
+	<option value="hosts" $( [ "$ADDHOLE_MODE" = "hosts" ] && echo selected )>$(lang de:"Hosts" en:"Hosts")</option>
+	<option value="cname" $( [ "$ADDHOLE_MODE" = "cname" ] && echo selected )>CNAME</option>
+</select>
+</label>
+</p>
+EOF
+
+cgi_print_textline_p "sink_host" "$ADDHOLE_SINK_HOST" 35/63 "$(lang de:"Sink-Hostname" en:"Sink hostname"): "
 cgi_print_textline_p "sink_ip4" "$ADDHOLE_SINK_IP4" 15/39 "$(lang de:"IPv4-Ziel-IP" en:"IPv4 sink IP"): "
 cgi_print_textline_p "sink_ip6" "$ADDHOLE_SINK_IP6" 15/39 "$(lang de:"IPv6-Ziel-IP (leer = keine AAAA-Blockierung)" en:"IPv6 sink IP (empty = no AAAA blocking)"): "
 
-echo "<p><small>$(lang de:"Alte Einstellung 'sink' wird automatisch nach 'sink_ip4' migriert." en:"Legacy 'sink' value is auto-migrated to 'sink_ip4'.")</small></p>"
+echo "<p><small>$(lang de:"Alter Wert 'sink' wird automatisch nach 'sink_ip4' migriert. CNAME-Modus reduziert Zeilenanzahl." en:"Legacy 'sink' auto-migrated to 'sink_ip4'. CNAME mode reduces line count.")</small></p>"
 
 cgi_print_checkbox_p "keep" "$ADDHOLE_KEEP" "$(lang de:"Beim Updaten die vorherigen Hosts behalten" en:"On updating keep the previous hosts")."
 
